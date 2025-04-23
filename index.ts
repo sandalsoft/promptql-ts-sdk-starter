@@ -20,9 +20,7 @@ type Artifact = {
 // Spinner instance
 let spinner = ora({
   text: 'Working',
-  color: 'cyan',
-  isEnabled: true,
-  discardStdin: false
+  color: 'cyan'
 });
 
 // State tracking
@@ -75,14 +73,7 @@ const clearLine = () => {
 
 const displayStreamingMessage = (message: string | null) => {
   if (message) {
-    // Ensure spinner is stopped before writing
-    if (spinner.isSpinning) {
-      spinner.stop();
-    }
-
-    // Write the message
     process.stdout.write(message);
-    isOutputting = true;
   }
 };
 
@@ -150,7 +141,6 @@ const processQuery = async (userPrompt: string) => {
   let finalMessage: string | null = null;
 
   // Reset state
-  isOutputting = false;
   if (spinner.isSpinning) {
     spinner.stop();
   }
@@ -168,23 +158,17 @@ const processQuery = async (userPrompt: string) => {
           break;
 
         case 'assistant_action_chunk':
-          // Display any message first
+          // Display message if present
           if (chunk.message) {
             if (spinner.isSpinning) spinner.stop();
             displayStreamingMessage(chunk.message);
           }
 
-          // Start spinner only if there's a plan or code and we're not already
-          // in the middle of outputting text
-          if ((chunk.plan || chunk.code) && !isOutputting) {
+          // Start spinner if there's a plan or code
+          if (chunk.plan || chunk.code) {
             if (!spinner.isSpinning) {
-              // Add a small delay to prevent flickering when messages come quickly
-              setTimeout(() => {
-                // Only start if we're still not outputting
-                if (!isOutputting) {
-                  spinner.start();
-                }
-              }, 100);
+              console.log(); // Add line break
+              spinner.start();
             }
           }
           break;
@@ -197,7 +181,6 @@ const processQuery = async (userPrompt: string) => {
         case 'complete':
           if (spinner.isSpinning) spinner.stop();
           finalMessage = chunk.message;
-          isOutputting = false;
           break;
 
         case 'error_chunk':
@@ -205,7 +188,6 @@ const processQuery = async (userPrompt: string) => {
           if (chunk.error) {
             console.error(`\nError: ${chunk.error}`);
           }
-          isOutputting = false;
           break;
       }
     }
