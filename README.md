@@ -46,7 +46,7 @@ Question,Category,Priority
 
 ### Spinner Animation
 
-The application displays a visual spinner animation (`Working |/-\`) when the PromptQL engine is processing actions. This provides visual feedback during:
+The application displays a visual spinner animation when the PromptQL engine is processing actions using the [ora](https://github.com/sindresorhus/ora) library. This provides elegant visual feedback during:
 
 - Code execution
 - Plan generation
@@ -69,6 +69,7 @@ The application follows functional programming patterns and SOLID principles:
 - `cli-table3`: ASCII table rendering for artifacts
 - `readline`: Terminal output management
 - `@hasura/promptql`: PromptQL TypeScript SDK
+- `ora`: Elegant terminal spinner
 
 ## License
 

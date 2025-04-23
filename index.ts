@@ -4,6 +4,7 @@ import { createPromptQLClient } from '@hasura/promptql';
 import Table from 'cli-table3';
 import readline from 'readline';
 import { config } from 'dotenv';
+import ora from 'ora';
 
 // Load environment variables
 config({ path: '.env' });
@@ -16,28 +17,11 @@ type Artifact = {
   data: string | Record<string, unknown>[] | Record<string, unknown>;
 };
 
-// Spinner animation
-const spinnerFrames = ['|', '/', '-', '\\'];
-let spinnerIndex = 0;
-let spinnerInterval: NodeJS.Timeout | null = null;
-
-const startSpinner = (prefix: string = 'Working ') => {
-  if (spinnerInterval) return;
-
-  spinnerInterval = setInterval(() => {
-    clearLine();
-    process.stdout.write(`${prefix}${spinnerFrames[spinnerIndex]}`);
-    spinnerIndex = (spinnerIndex + 1) % spinnerFrames.length;
-  }, 100);
-};
-
-const stopSpinner = () => {
-  if (spinnerInterval) {
-    clearInterval(spinnerInterval);
-    spinnerInterval = null;
-    clearLine();
-  }
-};
+// Spinner instance
+let spinner = ora({
+  text: 'Working',
+  color: 'cyan'
+});
 
 type ResponseChunk =
   | { type: 'assistant_message_chunk'; message: string | null; index: number; }
@@ -149,22 +133,22 @@ const processQuery = async (userPrompt: string) => {
     async (chunk: any) => {
       // console.log(`chunk.type: ${chunk.type}`);
       if (chunk.type === 'assistant_message_chunk') {
-        stopSpinner();
+        spinner.stop();
         displayStreamingMessage(chunk.message);
       } else if (chunk.type === 'assistant_action_chunk') {
-        stopSpinner();
+        spinner.stop();
         displayStreamingMessage(chunk.message);
         if (chunk.plan || chunk.code) {
-          startSpinner();
+          spinner.start();
         }
       } else if (chunk.type === 'artifact_update_chunk') {
-        stopSpinner();
+        spinner.stop();
         displayArtifact(chunk.artifact);
       } else if (chunk.type === 'complete') {
-        stopSpinner();
+        spinner.stop();
         finalMessage = chunk.message;
       } else if (chunk.type === 'error_chunk' && chunk.error) {
-        stopSpinner();
+        spinner.stop();
         console.error(`Error: ${chunk.error}`);
       }
     }
