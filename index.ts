@@ -136,7 +136,11 @@ const displayTableArtifact = (tableData: Record<string, unknown>[]) => {
 };
 
 // Main Process Runner
-const processQuery = async (userPrompt: string): Promise<{ finalMessage: string | null, betweenArtifactsMessage: string | null; }> => {
+const processQuery = async (userPrompt: string): Promise<{
+  finalMessage: string | null,
+  betweenArtifactsMessage: string | null,
+  lastTwoSentencesMessage: string | null;
+}> => {
   const client = createClient();
   let finalMessage: string | null = null;
 
@@ -145,6 +149,9 @@ const processQuery = async (userPrompt: string): Promise<{ finalMessage: string 
   let messageBetweenArtifacts: string = '';
   let lastArtifactTime: number = 0;
   let betweenArtifactsMessage: string | null = null;
+
+  // Variable to collect all streamed text
+  let allStreamedText: string = '';
 
   // Reset state
   if (spinner.isSpinning) {
@@ -163,6 +170,11 @@ const processQuery = async (userPrompt: string): Promise<{ finalMessage: string 
         case 'assistant_message_chunk':
           if (spinner.isSpinning) spinner.stop();
 
+          // Collect all streamed text
+          if (chunk.message) {
+            allStreamedText += chunk.message;
+          }
+
           // If we've seen at least one artifact, collect message text
           if (lastArtifactTime > 0) {
             messageBetweenArtifacts += chunk.message || '';
@@ -175,6 +187,9 @@ const processQuery = async (userPrompt: string): Promise<{ finalMessage: string 
           // Display message if present
           if (chunk.message) {
             if (spinner.isSpinning) spinner.stop();
+
+            // Collect all streamed text
+            allStreamedText += chunk.message;
 
             // If we've seen at least one artifact, collect message text
             if (lastArtifactTime > 0) {
@@ -233,7 +248,10 @@ const processQuery = async (userPrompt: string): Promise<{ finalMessage: string 
     spinner.stop();
   }
 
-  // Display both final message types
+  // Extract the last two sentences
+  const lastTwoSentencesMessage = extractLastTwoSentences(allStreamedText);
+
+  // Display all final message types
   displayFinalOutput(finalMessage);
 
   if (betweenArtifactsMessage) {
@@ -243,11 +261,61 @@ const processQuery = async (userPrompt: string): Promise<{ finalMessage: string 
     console.log('-'.repeat(50));
   }
 
-  // Return both message types
+  if (lastTwoSentencesMessage) {
+    console.log('\nLast two sentences:');
+    console.log('-'.repeat(50));
+    console.log(lastTwoSentencesMessage);
+    console.log('-'.repeat(50));
+  }
+
+  // Return all message types
   return {
     finalMessage,
-    betweenArtifactsMessage
+    betweenArtifactsMessage,
+    lastTwoSentencesMessage
   };
+};
+
+// Function to extract the last two sentences from text
+const extractLastTwoSentences = (text: string): string | null => {
+  if (!text || !text.trim()) return null;
+
+  // Clean up the text
+  const cleanedText = text.trim()
+    // Remove artifact markers
+    .replace(/<artifact.*?\/>/g, '')
+    // Replace multiple spaces/newlines with single space
+    .replace(/\s+/g, ' ');
+
+  // Use a manual approach to find the last two sentences
+  const sentenceEndingChars = ['.', '!', '?'];
+  const sentences: string[] = [];
+  let currentSentence = "";
+
+  // Process character by character
+  for (let i = 0; i < cleanedText.length; i++) {
+    currentSentence += cleanedText[i];
+
+    // Check if we're at the end of a sentence
+    if (
+      sentenceEndingChars.includes(cleanedText[i]) &&
+      (i === cleanedText.length - 1 || cleanedText[i + 1] === ' ')
+    ) {
+      sentences.push(currentSentence.trim());
+      currentSentence = "";
+    }
+  }
+
+  // Add any remaining text as a sentence
+  if (currentSentence.trim()) {
+    sentences.push(currentSentence.trim());
+  }
+
+  // Get the last two sentences if available
+  if (sentences.length === 0) return null;
+  if (sentences.length === 1) return sentences[0];
+
+  return sentences.slice(-2).join(' ').trim();
 };
 
 // Main Entry Point
@@ -257,15 +325,17 @@ const main = async (csvFilePath: string) => {
     const results: Array<{
       question: string,
       finalMessage: string | null,
-      betweenArtifactsMessage: string | null;
+      betweenArtifactsMessage: string | null,
+      lastTwoSentencesMessage: string | null;
     }> = [];
 
     for (const question of questions) {
-      const { finalMessage, betweenArtifactsMessage } = await processQuery(question);
+      const { finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage } = await processQuery(question);
       results.push({
         question,
         finalMessage,
-        betweenArtifactsMessage
+        betweenArtifactsMessage,
+        lastTwoSentencesMessage
       });
 
       // Add a pause between queries
@@ -274,10 +344,11 @@ const main = async (csvFilePath: string) => {
 
     // Optional: Log summary of all final messages
     console.log('\n===== SUMMARY OF RESULTS =====');
-    results.forEach(({ question, finalMessage, betweenArtifactsMessage }) => {
+    results.forEach(({ question, finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage }) => {
       console.log(`\nQuestion: ${question}`);
       console.log(`Complete message: ${finalMessage || 'No final message received'}`);
       console.log(`Between artifacts: ${betweenArtifactsMessage || 'No message between artifacts'}`);
+      console.log(`Last two sentences: ${lastTwoSentencesMessage || 'No sentences found'}`);
       console.log('-'.repeat(50));
     });
 
