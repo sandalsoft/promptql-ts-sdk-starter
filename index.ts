@@ -298,7 +298,7 @@ const extractLastTwoSentences = (text: string): string | null => {
 
     // Check if we're at the end of a sentence
     if (
-      sentenceEndingChars.includes(cleanedText[i]) &&
+      sentenceEndingChars.includes(cleanedText[i] || '') &&
       (i === cleanedText.length - 1 || cleanedText[i + 1] === ' ')
     ) {
       sentences.push(currentSentence.trim());
@@ -313,9 +313,10 @@ const extractLastTwoSentences = (text: string): string | null => {
 
   // Get the last two sentences if available
   if (sentences.length === 0) return null;
-  if (sentences.length === 1) return sentences[0];
+  if (sentences.length === 1) return sentences[0] || null;
 
-  return sentences.slice(-2).join(' ').trim();
+  const lastTwoSentences = sentences.slice(-2);
+  return lastTwoSentences.join(' '); // This will always be a string
 };
 
 // Main Entry Point
@@ -343,14 +344,14 @@ const main = async (csvFilePath: string) => {
     }
 
     // Optional: Log summary of all final messages
-    console.log('\n===== SUMMARY OF RESULTS =====');
-    results.forEach(({ question, finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage }) => {
-      console.log(`\nQuestion: ${question}`);
-      console.log(`Complete message: ${finalMessage || 'No final message received'}`);
-      console.log(`Between artifacts: ${betweenArtifactsMessage || 'No message between artifacts'}`);
-      console.log(`Last two sentences: ${lastTwoSentencesMessage || 'No sentences found'}`);
-      console.log('-'.repeat(50));
-    });
+    // console.log('\n===== SUMMARY OF RESULTS =====');
+    // results.forEach(({ question, finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage }) => {
+    //   console.log(`\nQuestion: ${question}`);
+    //   console.log(`Complete message: ${finalMessage || 'No final message received'}`);
+    //   console.log(`Between artifacts: ${betweenArtifactsMessage || 'No message between artifacts'}`);
+    //   console.log(`Last two sentences: ${lastTwoSentencesMessage || 'No sentences found'}`);
+    //   console.log('-'.repeat(50));
+    // });
 
     // Optional: Return results for further processing
     return results;

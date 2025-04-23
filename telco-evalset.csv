@@ -1,2 +1,2 @@
 Difficulty Level,Question,Answer,Justification,How to manually fetch answer
-1,How many iphone customers are there?,Evaluate telco customers,Simple single table query counting active users,SELECT COUNT(*) blah blah blah
+1,How many iphone customers are there?  Just the count of total customers with an iphone,Evaluate telco customers,Simple single table query counting active users,SELECT COUNT(*) blah blah blah
