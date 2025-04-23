@@ -25,9 +25,8 @@ let spinner = ora({
   discardStdin: false
 });
 
-// State tracking to prevent excessive newlines
-let lastChunkType: string | null = null;
-let spinnerActive = false;
+// State tracking
+let isOutputting = false;
 
 type ResponseChunk =
   | { type: 'assistant_message_chunk'; message: string | null; index: number; }
@@ -76,11 +75,23 @@ const clearLine = () => {
 
 const displayStreamingMessage = (message: string | null) => {
   if (message) {
+    // Ensure spinner is stopped before writing
+    if (spinner.isSpinning) {
+      spinner.stop();
+    }
+
+    // Write the message
     process.stdout.write(message);
+    isOutputting = true;
   }
 };
 
 const displayFinalOutput = (message: string | null) => {
+  // Ensure spinner is stopped
+  if (spinner.isSpinning) {
+    spinner.stop();
+  }
+
   console.log('\n\nFinal output:');
   console.log('-'.repeat(50));
   console.log(message || 'No final message received');
@@ -89,6 +100,11 @@ const displayFinalOutput = (message: string | null) => {
 
 // Artifact Display
 const displayArtifact = (artifact: Artifact) => {
+  // Ensure spinner is stopped
+  if (spinner.isSpinning) {
+    spinner.stop();
+  }
+
   console.log(`\n\nArtifact: ${artifact.title} (${artifact.identifier})`);
   console.log('-'.repeat(50));
 
@@ -101,6 +117,7 @@ const displayArtifact = (artifact: Artifact) => {
   }
 
   console.log('-'.repeat(50));
+  isOutputting = true;
 };
 
 const displayTableArtifact = (tableData: Record<string, unknown>[]) => {
@@ -132,70 +149,72 @@ const processQuery = async (userPrompt: string) => {
   const client = createClient();
   let finalMessage: string | null = null;
 
-  // Reset state for each query
-  lastChunkType = null;
-  spinnerActive = false;
+  // Reset state
+  isOutputting = false;
+  if (spinner.isSpinning) {
+    spinner.stop();
+  }
 
   console.log(`Processing query: "${userPrompt}"`);
 
   await client.queryStream(
     createStreamingQuery(userPrompt),
     async (chunk: any) => {
-      // console.log(`chunk.type: ${chunk.type}`);
-      if (chunk.type === 'assistant_message_chunk') {
-        if (spinner.isSpinning) {
-          spinner.stop();
-          // Only add newline when transitioning from spinner to message
-          if (!spinnerActive || lastChunkType !== 'assistant_message_chunk') {
-            process.stdout.write('\n');
-          }
-          spinnerActive = false;
-        }
-        displayStreamingMessage(chunk.message);
-        lastChunkType = chunk.type;
-      } else if (chunk.type === 'assistant_action_chunk') {
-        if (spinner.isSpinning) {
-          spinner.stop();
-          spinnerActive = false;
-        }
-        displayStreamingMessage(chunk.message);
+      // Handle different chunk types
+      switch (chunk.type) {
+        case 'assistant_message_chunk':
+          if (spinner.isSpinning) spinner.stop();
+          displayStreamingMessage(chunk.message);
+          break;
 
-        if ((chunk.plan || chunk.code) && !spinnerActive) {
-          // Only add a newline if we're starting the spinner for the first time
-          // or if we've received different chunk types between spinner activations
-          if (lastChunkType !== 'assistant_action_chunk' || !spinnerActive) {
-            process.stdout.write('\n');
+        case 'assistant_action_chunk':
+          // Display any message first
+          if (chunk.message) {
+            if (spinner.isSpinning) spinner.stop();
+            displayStreamingMessage(chunk.message);
           }
-          spinner.start();
-          spinnerActive = true;
-        }
-        lastChunkType = chunk.type;
-      } else if (chunk.type === 'artifact_update_chunk') {
-        if (spinner.isSpinning) {
-          spinner.stop();
-          process.stdout.write('\n');
-          spinnerActive = false;
-        }
-        displayArtifact(chunk.artifact);
-        lastChunkType = chunk.type;
-      } else if (chunk.type === 'complete') {
-        if (spinner.isSpinning) {
-          spinner.stop();
-          spinnerActive = false;
-        }
-        finalMessage = chunk.message;
-        lastChunkType = chunk.type;
-      } else if (chunk.type === 'error_chunk' && chunk.error) {
-        if (spinner.isSpinning) {
-          spinner.stop();
-          process.stdout.write('\n');
-          spinnerActive = false;
-        }
-        console.error(`Error: ${chunk.error}`);
-        lastChunkType = chunk.type;
+
+          // Start spinner only if there's a plan or code and we're not already
+          // in the middle of outputting text
+          if ((chunk.plan || chunk.code) && !isOutputting) {
+            if (!spinner.isSpinning) {
+              // Add a small delay to prevent flickering when messages come quickly
+              setTimeout(() => {
+                // Only start if we're still not outputting
+                if (!isOutputting) {
+                  spinner.start();
+                }
+              }, 100);
+            }
+          }
+          break;
+
+        case 'artifact_update_chunk':
+          if (spinner.isSpinning) spinner.stop();
+          displayArtifact(chunk.artifact);
+          break;
+
+        case 'complete':
+          if (spinner.isSpinning) spinner.stop();
+          finalMessage = chunk.message;
+          isOutputting = false;
+          break;
+
+        case 'error_chunk':
+          if (spinner.isSpinning) spinner.stop();
+          if (chunk.error) {
+            console.error(`\nError: ${chunk.error}`);
+          }
+          isOutputting = false;
+          break;
       }
     }
   );
+
+  // Ensure spinner is stopped at the end
+  if (spinner.isSpinning) {
+    spinner.stop();
+  }
 
   displayFinalOutput(finalMessage);
 };
