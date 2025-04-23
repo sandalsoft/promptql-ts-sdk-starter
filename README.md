@@ -9,6 +9,7 @@ A command-line utility for processing CSV files and sending the questions to Pro
 - Display streaming responses in real-time
 - Process and visualize artifacts returned by PromptQL
 - Show final responses separately from streaming output
+- Visual spinner animation during action processing
 
 ## Installation
 
@@ -40,6 +41,18 @@ Question,Category,Priority
 "What is PromptQL?",General,High
 "How do I connect to a database with PromptQL?",Database,Medium
 ```
+
+## UI Features
+
+### Spinner Animation
+
+The application displays a visual spinner animation (`Working |/-\`) when the PromptQL engine is processing actions. This provides visual feedback during:
+
+- Code execution
+- Plan generation
+- Any other computational actions
+
+The spinner automatically stops when text output, artifacts, or errors are received.
 
 ## Architecture
 

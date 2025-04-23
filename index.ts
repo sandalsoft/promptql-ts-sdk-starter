@@ -16,6 +16,29 @@ type Artifact = {
   data: string | Record<string, unknown>[] | Record<string, unknown>;
 };
 
+// Spinner animation
+const spinnerFrames = ['|', '/', '-', '\\'];
+let spinnerIndex = 0;
+let spinnerInterval: NodeJS.Timeout | null = null;
+
+const startSpinner = (prefix: string = 'Working ') => {
+  if (spinnerInterval) return;
+
+  spinnerInterval = setInterval(() => {
+    clearLine();
+    process.stdout.write(`${prefix}${spinnerFrames[spinnerIndex]}`);
+    spinnerIndex = (spinnerIndex + 1) % spinnerFrames.length;
+  }, 100);
+};
+
+const stopSpinner = () => {
+  if (spinnerInterval) {
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+    clearLine();
+  }
+};
+
 type ResponseChunk =
   | { type: 'assistant_message_chunk'; message: string | null; index: number; }
   | { type: 'assistant_action_chunk'; message: string | null; plan: string | null; code: string | null; code_output: string | null; code_error: string | null; index: number; }
@@ -124,13 +147,24 @@ const processQuery = async (userPrompt: string) => {
   await client.queryStream(
     createStreamingQuery(userPrompt),
     async (chunk: any) => {
-      if (chunk.type === 'assistant_message_chunk' || chunk.type === 'assistant_action_chunk') {
+      // console.log(`chunk.type: ${chunk.type}`);
+      if (chunk.type === 'assistant_message_chunk') {
+        stopSpinner();
         displayStreamingMessage(chunk.message);
+      } else if (chunk.type === 'assistant_action_chunk') {
+        stopSpinner();
+        displayStreamingMessage(chunk.message);
+        if (chunk.plan || chunk.code) {
+          startSpinner();
+        }
       } else if (chunk.type === 'artifact_update_chunk') {
+        stopSpinner();
         displayArtifact(chunk.artifact);
       } else if (chunk.type === 'complete') {
+        stopSpinner();
         finalMessage = chunk.message;
       } else if (chunk.type === 'error_chunk' && chunk.error) {
+        stopSpinner();
         console.error(`Error: ${chunk.error}`);
       }
     }
