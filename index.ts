@@ -252,21 +252,21 @@ const processQuery = async (userPrompt: string): Promise<{
   const lastTwoSentencesMessage = extractLastTwoSentences(allStreamedText);
 
   // Display all final message types
-  displayFinalOutput(finalMessage);
+  // displayFinalOutput(finalMessage);
 
-  if (betweenArtifactsMessage) {
-    console.log('\nMessage between final artifacts:');
-    console.log('-'.repeat(50));
-    console.log(betweenArtifactsMessage);
-    console.log('-'.repeat(50));
-  }
+  // if (betweenArtifactsMessage) {
+  //   console.log('\nMessage between final artifacts:');
+  //   console.log('-'.repeat(50));
+  //   console.log(betweenArtifactsMessage);
+  //   console.log('-'.repeat(50));
+  // }
 
-  if (lastTwoSentencesMessage) {
-    console.log('\nLast two sentences:');
-    console.log('-'.repeat(50));
-    console.log(lastTwoSentencesMessage);
-    console.log('-'.repeat(50));
-  }
+  // if (lastTwoSentencesMessage) {
+  //   console.log('\nLast two sentences:');
+  //   console.log('-'.repeat(50));
+  //   console.log(lastTwoSentencesMessage);
+  //   console.log('-'.repeat(50));
+  // }
 
   // Return all message types
   return {
