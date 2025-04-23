@@ -20,7 +20,9 @@ type Artifact = {
 // Spinner instance
 let spinner = ora({
   text: 'Working',
-  color: 'cyan'
+  color: 'cyan',
+  isEnabled: true,
+  discardStdin: false
 });
 
 type ResponseChunk =
@@ -133,22 +135,36 @@ const processQuery = async (userPrompt: string) => {
     async (chunk: any) => {
       // console.log(`chunk.type: ${chunk.type}`);
       if (chunk.type === 'assistant_message_chunk') {
-        spinner.stop();
+        if (spinner.isSpinning) {
+          spinner.stop();
+          process.stdout.write('\n');
+        }
         displayStreamingMessage(chunk.message);
       } else if (chunk.type === 'assistant_action_chunk') {
-        spinner.stop();
+        if (spinner.isSpinning) {
+          spinner.stop();
+        }
         displayStreamingMessage(chunk.message);
         if (chunk.plan || chunk.code) {
+          process.stdout.write('\n');
           spinner.start();
         }
       } else if (chunk.type === 'artifact_update_chunk') {
-        spinner.stop();
+        if (spinner.isSpinning) {
+          spinner.stop();
+          process.stdout.write('\n');
+        }
         displayArtifact(chunk.artifact);
       } else if (chunk.type === 'complete') {
-        spinner.stop();
+        if (spinner.isSpinning) {
+          spinner.stop();
+        }
         finalMessage = chunk.message;
       } else if (chunk.type === 'error_chunk' && chunk.error) {
-        spinner.stop();
+        if (spinner.isSpinning) {
+          spinner.stop();
+          process.stdout.write('\n');
+        }
         console.error(`Error: ${chunk.error}`);
       }
     }
