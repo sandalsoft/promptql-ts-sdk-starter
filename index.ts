@@ -136,9 +136,15 @@ const displayTableArtifact = (tableData: Record<string, unknown>[]) => {
 };
 
 // Main Process Runner
-const processQuery = async (userPrompt: string): Promise<string | null> => {
+const processQuery = async (userPrompt: string): Promise<{ finalMessage: string | null, betweenArtifactsMessage: string | null; }> => {
   const client = createClient();
   let finalMessage: string | null = null;
+
+  // Variables to track artifacts and messages between them
+  const artifactTimestamps: number[] = [];
+  let messageBetweenArtifacts: string = '';
+  let lastArtifactTime: number = 0;
+  let betweenArtifactsMessage: string | null = null;
 
   // Reset state
   if (spinner.isSpinning) {
@@ -150,10 +156,18 @@ const processQuery = async (userPrompt: string): Promise<string | null> => {
   await client.queryStream(
     createStreamingQuery(userPrompt),
     async (chunk: any) => {
+      const currentTime = Date.now();
+
       // Handle different chunk types
       switch (chunk.type) {
         case 'assistant_message_chunk':
           if (spinner.isSpinning) spinner.stop();
+
+          // If we've seen at least one artifact, collect message text
+          if (lastArtifactTime > 0) {
+            messageBetweenArtifacts += chunk.message || '';
+          }
+
           displayStreamingMessage(chunk.message);
           break;
 
@@ -161,6 +175,12 @@ const processQuery = async (userPrompt: string): Promise<string | null> => {
           // Display message if present
           if (chunk.message) {
             if (spinner.isSpinning) spinner.stop();
+
+            // If we've seen at least one artifact, collect message text
+            if (lastArtifactTime > 0) {
+              messageBetweenArtifacts += chunk.message || '';
+            }
+
             displayStreamingMessage(chunk.message);
           }
 
@@ -175,6 +195,21 @@ const processQuery = async (userPrompt: string): Promise<string | null> => {
 
         case 'artifact_update_chunk':
           if (spinner.isSpinning) spinner.stop();
+
+          // Record this artifact timestamp
+          artifactTimestamps.push(currentTime);
+
+          // If this is at least the second artifact, save the message between them
+          if (artifactTimestamps.length >= 2) {
+            // The message between the previous artifact and this one
+            betweenArtifactsMessage = messageBetweenArtifacts.trim();
+            // Reset for next potential message between artifacts
+            messageBetweenArtifacts = '';
+          }
+
+          // Update the last artifact time
+          lastArtifactTime = currentTime;
+
           displayArtifact(chunk.artifact);
           break;
 
@@ -198,21 +233,40 @@ const processQuery = async (userPrompt: string): Promise<string | null> => {
     spinner.stop();
   }
 
+  // Display both final message types
   displayFinalOutput(finalMessage);
 
-  // Return the final message to the caller
-  return finalMessage;
+  if (betweenArtifactsMessage) {
+    console.log('\nMessage between final artifacts:');
+    console.log('-'.repeat(50));
+    console.log(betweenArtifactsMessage);
+    console.log('-'.repeat(50));
+  }
+
+  // Return both message types
+  return {
+    finalMessage,
+    betweenArtifactsMessage
+  };
 };
 
 // Main Entry Point
 const main = async (csvFilePath: string) => {
   try {
     const questions = await parseCsvFile(csvFilePath);
-    const results: Array<{ question: string, finalMessage: string | null; }> = [];
+    const results: Array<{
+      question: string,
+      finalMessage: string | null,
+      betweenArtifactsMessage: string | null;
+    }> = [];
 
     for (const question of questions) {
-      const finalMessage = await processQuery(question);
-      results.push({ question, finalMessage });
+      const { finalMessage, betweenArtifactsMessage } = await processQuery(question);
+      results.push({
+        question,
+        finalMessage,
+        betweenArtifactsMessage
+      });
 
       // Add a pause between queries
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -220,9 +274,10 @@ const main = async (csvFilePath: string) => {
 
     // Optional: Log summary of all final messages
     console.log('\n===== SUMMARY OF RESULTS =====');
-    results.forEach(({ question, finalMessage }) => {
+    results.forEach(({ question, finalMessage, betweenArtifactsMessage }) => {
       console.log(`\nQuestion: ${question}`);
-      console.log(`Final message: ${finalMessage || 'No final message received'}`);
+      console.log(`Complete message: ${finalMessage || 'No final message received'}`);
+      console.log(`Between artifacts: ${betweenArtifactsMessage || 'No message between artifacts'}`);
       console.log('-'.repeat(50));
     });
 
