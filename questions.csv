@@ -1,0 +1,5 @@
+Question,Category,Priority
+"What is PromptQL?",General,High
+"How do I connect to a database with PromptQL?",Database,Medium
+"Can you show me an example of using PromptQL with tables?",Examples,High
+"What are the best practices for writing efficient PromptQL queries?",Best Practices,Medium 
