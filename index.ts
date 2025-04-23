@@ -25,6 +25,10 @@ let spinner = ora({
   discardStdin: false
 });
 
+// State tracking to prevent excessive newlines
+let lastChunkType: string | null = null;
+let spinnerActive = false;
+
 type ResponseChunk =
   | { type: 'assistant_message_chunk'; message: string | null; index: number; }
   | { type: 'assistant_action_chunk'; message: string | null; plan: string | null; code: string | null; code_output: string | null; code_error: string | null; index: number; }
@@ -128,6 +132,10 @@ const processQuery = async (userPrompt: string) => {
   const client = createClient();
   let finalMessage: string | null = null;
 
+  // Reset state for each query
+  lastChunkType = null;
+  spinnerActive = false;
+
   console.log(`Processing query: "${userPrompt}"`);
 
   await client.queryStream(
@@ -137,35 +145,54 @@ const processQuery = async (userPrompt: string) => {
       if (chunk.type === 'assistant_message_chunk') {
         if (spinner.isSpinning) {
           spinner.stop();
-          process.stdout.write('\n');
+          // Only add newline when transitioning from spinner to message
+          if (!spinnerActive || lastChunkType !== 'assistant_message_chunk') {
+            process.stdout.write('\n');
+          }
+          spinnerActive = false;
         }
         displayStreamingMessage(chunk.message);
+        lastChunkType = chunk.type;
       } else if (chunk.type === 'assistant_action_chunk') {
         if (spinner.isSpinning) {
           spinner.stop();
+          spinnerActive = false;
         }
         displayStreamingMessage(chunk.message);
-        if (chunk.plan || chunk.code) {
-          process.stdout.write('\n');
+
+        if ((chunk.plan || chunk.code) && !spinnerActive) {
+          // Only add a newline if we're starting the spinner for the first time
+          // or if we've received different chunk types between spinner activations
+          if (lastChunkType !== 'assistant_action_chunk' || !spinnerActive) {
+            process.stdout.write('\n');
+          }
           spinner.start();
+          spinnerActive = true;
         }
+        lastChunkType = chunk.type;
       } else if (chunk.type === 'artifact_update_chunk') {
         if (spinner.isSpinning) {
           spinner.stop();
           process.stdout.write('\n');
+          spinnerActive = false;
         }
         displayArtifact(chunk.artifact);
+        lastChunkType = chunk.type;
       } else if (chunk.type === 'complete') {
         if (spinner.isSpinning) {
           spinner.stop();
+          spinnerActive = false;
         }
         finalMessage = chunk.message;
+        lastChunkType = chunk.type;
       } else if (chunk.type === 'error_chunk' && chunk.error) {
         if (spinner.isSpinning) {
           spinner.stop();
           process.stdout.write('\n');
+          spinnerActive = false;
         }
         console.error(`Error: ${chunk.error}`);
+        lastChunkType = chunk.type;
       }
     }
   );
