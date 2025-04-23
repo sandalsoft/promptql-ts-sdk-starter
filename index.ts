@@ -136,7 +136,7 @@ const displayTableArtifact = (tableData: Record<string, unknown>[]) => {
 };
 
 // Main Process Runner
-const processQuery = async (userPrompt: string) => {
+const processQuery = async (userPrompt: string): Promise<string | null> => {
   const client = createClient();
   let finalMessage: string | null = null;
 
@@ -199,18 +199,35 @@ const processQuery = async (userPrompt: string) => {
   }
 
   displayFinalOutput(finalMessage);
+
+  // Return the final message to the caller
+  return finalMessage;
 };
 
 // Main Entry Point
 const main = async (csvFilePath: string) => {
   try {
     const questions = await parseCsvFile(csvFilePath);
+    const results: Array<{ question: string, finalMessage: string | null; }> = [];
 
     for (const question of questions) {
-      await processQuery(question);
+      const finalMessage = await processQuery(question);
+      results.push({ question, finalMessage });
+
       // Add a pause between queries
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
+
+    // Optional: Log summary of all final messages
+    console.log('\n===== SUMMARY OF RESULTS =====');
+    results.forEach(({ question, finalMessage }) => {
+      console.log(`\nQuestion: ${question}`);
+      console.log(`Final message: ${finalMessage || 'No final message received'}`);
+      console.log('-'.repeat(50));
+    });
+
+    // Optional: Return results for further processing
+    return results;
   } catch (error) {
     console.error('Error processing CSV file or running queries:', error);
     process.exit(1);
