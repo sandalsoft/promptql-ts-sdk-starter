@@ -27,7 +27,7 @@ bun install
 Run the script with a path to your CSV file:
 
 ```bash
-bun run promptql-stream.ts path/to/your/questions.csv
+bun run index.ts test-evalset.csv
 ```
 
 ### CSV Format

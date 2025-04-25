@@ -56,6 +56,7 @@ const parseCsvFile = (filePath: string) => new Promise<string[]>((resolve, rejec
       }
     })
     .on('error', reject)
+    // .on('end', () => resolve(questions));
     .on('end', () => resolve(questions));
 });
 
@@ -330,33 +331,25 @@ const main = async (csvFilePath: string) => {
       lastTwoSentencesMessage: string | null;
     }> = [];
 
-    for (const question of questions) {
-      const { finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage } = await processQuery(question);
-      results.push({
-        question,
-        finalMessage,
-        betweenArtifactsMessage,
-        lastTwoSentencesMessage
-      });
+    try {
+      for (const question of questions) {
+        const { finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage } = await processQuery(question);
+        results.push({
+          question,
+          finalMessage,
+          betweenArtifactsMessage,
+          lastTwoSentencesMessage
+        });
 
-      // Add a pause between queries
-      await new Promise(resolve => setTimeout(resolve, 1000));
+        // Add a pause between queries
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      return results;
+    } catch (err) {
+      console.error('Error running PromptQL query:', err);
     }
-
-    // Optional: Log summary of all final messages
-    // console.log('\n===== SUMMARY OF RESULTS =====');
-    // results.forEach(({ question, finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage }) => {
-    //   console.log(`\nQuestion: ${question}`);
-    //   console.log(`Complete message: ${finalMessage || 'No final message received'}`);
-    //   console.log(`Between artifacts: ${betweenArtifactsMessage || 'No message between artifacts'}`);
-    //   console.log(`Last two sentences: ${lastTwoSentencesMessage || 'No sentences found'}`);
-    //   console.log('-'.repeat(50));
-    // });
-
-    // Optional: Return results for further processing
-    return results;
   } catch (error) {
-    console.error('Error processing CSV file or running queries:', error);
+    console.error('Error processing CSV file ', error);
     process.exit(1);
   }
 };
