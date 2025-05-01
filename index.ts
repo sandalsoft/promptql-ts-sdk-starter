@@ -78,17 +78,6 @@ const displayStreamingMessage = (message: string | null) => {
   }
 };
 
-const displayFinalOutput = (message: string | null) => {
-  // Ensure spinner is stopped
-  if (spinner.isSpinning) {
-    spinner.stop();
-  }
-
-  console.log('\n\nFinal output:');
-  console.log('-'.repeat(50));
-  console.log(message || 'No final message received');
-  console.log('-'.repeat(50));
-};
 
 // Artifact Display
 const displayArtifact = (artifact: Artifact) => {
@@ -140,7 +129,6 @@ const displayTableArtifact = (tableData: Record<string, unknown>[]) => {
 const processQuery = async (userPrompt: string): Promise<{
   finalMessage: string | null,
   betweenArtifactsMessage: string | null,
-  lastTwoSentencesMessage: string | null;
 }> => {
   const client = createClient();
   let finalMessage: string | null = null;
@@ -248,97 +236,34 @@ const processQuery = async (userPrompt: string): Promise<{
   if (spinner.isSpinning) {
     spinner.stop();
   }
-
-  // Extract the last two sentences
-  const lastTwoSentencesMessage = extractLastTwoSentences(allStreamedText);
-
-  // Display all final message types
-  // displayFinalOutput(finalMessage);
-
-  // if (betweenArtifactsMessage) {
-  //   console.log('\nMessage between final artifacts:');
-  //   console.log('-'.repeat(50));
-  //   console.log(betweenArtifactsMessage);
-  //   console.log('-'.repeat(50));
-  // }
-
-  // if (lastTwoSentencesMessage) {
-  //   console.log('\nLast two sentences:');
-  //   console.log('-'.repeat(50));
-  //   console.log(lastTwoSentencesMessage);
-  //   console.log('-'.repeat(50));
-  // }
-
   // Return all message types
   return {
     finalMessage,
     betweenArtifactsMessage,
-    lastTwoSentencesMessage
+
   };
 };
 
-// Function to extract the last two sentences from text
-const extractLastTwoSentences = (text: string): string | null => {
-  if (!text || !text.trim()) return null;
-
-  // Clean up the text
-  const cleanedText = text.trim()
-    // Remove artifact markers
-    .replace(/<artifact.*?\/>/g, '')
-    // Replace multiple spaces/newlines with single space
-    .replace(/\s+/g, ' ');
-
-  // Use a manual approach to find the last two sentences
-  const sentenceEndingChars = ['.', '!', '?'];
-  const sentences: string[] = [];
-  let currentSentence = "";
-
-  // Process character by character
-  for (let i = 0; i < cleanedText.length; i++) {
-    currentSentence += cleanedText[i];
-
-    // Check if we're at the end of a sentence
-    if (
-      sentenceEndingChars.includes(cleanedText[i] || '') &&
-      (i === cleanedText.length - 1 || cleanedText[i + 1] === ' ')
-    ) {
-      sentences.push(currentSentence.trim());
-      currentSentence = "";
-    }
-  }
-
-  // Add any remaining text as a sentence
-  if (currentSentence.trim()) {
-    sentences.push(currentSentence.trim());
-  }
-
-  // Get the last two sentences if available
-  if (sentences.length === 0) return null;
-  if (sentences.length === 1) return sentences[0] || null;
-
-  const lastTwoSentences = sentences.slice(-2);
-  return lastTwoSentences.join(' '); // This will always be a string
-};
 
 // Main Entry Point
 const main = async (csvFilePath: string) => {
+  console.log('Starting PromptQL');
+  console.log(`Using PromptQL endpoint: ${process.env.PROMPTQL_DDN_URL}`);
   try {
     const questions = await parseCsvFile(csvFilePath);
     const results: Array<{
       question: string,
       finalMessage: string | null,
-      betweenArtifactsMessage: string | null,
-      lastTwoSentencesMessage: string | null;
+      betweenArtifactsMessage: string | null;
     }> = [];
 
     try {
       for (const question of questions) {
-        const { finalMessage, betweenArtifactsMessage, lastTwoSentencesMessage } = await processQuery(question);
+        const { finalMessage, betweenArtifactsMessage } = await processQuery(question);
         results.push({
           question,
           finalMessage,
           betweenArtifactsMessage,
-          lastTwoSentencesMessage
         });
 
         // Add a pause between queries
